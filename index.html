@@ -1,0 +1,852 @@
+<title>RGC Modification Helper</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500;600&display=swap">
+
+<style>
+/* ─── Design tokens ─── dark-first HUD design ───────────────────── */
+:root {
+  --bg:          #0a0c0f;
+  --surface:     #111418;
+  --surface2:    #181c22;
+  --border:      #252b35;
+  --border2:     #1e2530;
+  --fg:          #c8d0dc;
+  --fg2:         #7a8898;
+  --fg3:         #4a5568;
+  --accent:      #00d4ff;
+  --accent-dim:  rgba(0,212,255,0.12);
+  --accent-glow: rgba(0,212,255,0.35);
+  --green:       #00e87a;
+  --green-dim:   rgba(0,232,122,0.12);
+  --red:         #ff3d5a;
+  --red-dim:     rgba(255,61,90,0.12);
+  --gold:        #ffc740;
+  --gold-dim:    rgba(255,199,64,0.12);
+  --purple:      #9b6dff;
+  --font-display: 'Rajdhani', sans-serif;
+  --font-mono:    'Share Tech Mono', monospace;
+  --font-body:    'Inter', sans-serif;
+  color-scheme: dark;
+}
+
+/* Light theme override */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:       #e8ecf0;
+    --surface:  #f0f3f6;
+    --surface2: #ffffff;
+    --border:   #cdd4de;
+    --border2:  #d8dfe8;
+    --fg:       #1a2232;
+    --fg2:      #4a5568;
+    --fg3:      #8896a8;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg:       #e8ecf0;
+  --surface:  #f0f3f6;
+  --surface2: #ffffff;
+  --border:   #cdd4de;
+  --border2:  #d8dfe8;
+  --fg:       #1a2232;
+  --fg2:      #4a5568;
+  --fg3:      #8896a8;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Layout ── */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Top bar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+.logo span { color: var(--fg2); font-weight: 500; }
+.topbar-tabs { display: flex; gap: 2px; margin-left: 8px; }
+.tab-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg2);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.tab-btn:hover { color: var(--fg); background: var(--surface2); }
+.tab-btn.active { color: var(--accent); background: var(--accent-dim); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--green-dim); border: 1px solid rgba(0,232,122,0.3);
+  font-family: var(--font-mono); font-size: 11px; color: var(--green);
+  letter-spacing: .5px;
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.icon-btn {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--fg2); cursor: pointer; font-size: 15px; transition: color .15s, border-color .15s;
+}
+.icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── Main panels ── */
+.main { flex: 1; display: flex; }
+
+/* ─ Tab panels ─ */
+.panel { display: none; flex: 1; }
+.panel.active { display: flex; }
+
+/* ════════════════════════════════════
+   TAB 1 — OVERLAY PREVIEW
+════════════════════════════════════ */
+#tab-overlay { flex-direction: column; gap: 0; }
+
+.overlay-stage {
+  position: relative;
+  background: #060810;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,212,255,0.04) 40px),
+    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,212,255,0.04) 40px);
+  overflow: hidden;
+  flex: 1;
+  min-height: 460px;
+}
+
+/* fake game screenshot bg */
+.game-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 60%, rgba(15,30,60,0.9), transparent),
+    radial-gradient(ellipse 80% 50% at 20% 80%, rgba(20,10,40,0.6), transparent),
+    linear-gradient(180deg, #080c18 0%, #0d1525 40%, #0a1020 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.game-arena {
+  width: 240px; height: 180px;
+  border: 1px solid rgba(0,212,255,0.15);
+  border-radius: 4px;
+  background: rgba(0,212,255,0.02);
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.arena-label { color: rgba(0,212,255,0.2); font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; }
+/* arena dots */
+.arena-dot {
+  position: absolute;
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
+/* ── Overlay widgets — draggable ── */
+.widget {
+  position: absolute;
+  background: rgba(10,12,20,0.88);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  user-select: none;
+  cursor: grab;
+  transition: border-color .15s, box-shadow .15s;
+}
+.widget:hover { border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+.widget.dragging { cursor: grabbing; border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow); z-index: 50; }
+.widget-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px; border-bottom: 1px solid var(--border2);
+}
+.widget-title {
+  font-family: var(--font-display); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--fg2); text-transform: uppercase;
+}
+.widget-close {
+  font-size: 10px; color: var(--fg3); cursor: pointer; line-height: 1;
+  padding: 1px 4px; border-radius: 2px;
+}
+.widget-close:hover { color: var(--red); background: var(--red-dim); }
+.widget-body { padding: 8px; }
+
+/* ── Widget: Stats ── */
+#w-stats { top: 16px; left: 16px; width: 180px; }
+.stat-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--border2); }
+.stat-row:last-child { border: none; }
+.stat-label { font-family: var(--font-mono); font-size: 11px; color: var(--fg2); }
+.stat-val { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--fg); }
+.stat-val.green { color: var(--green); }
+.stat-val.red { color: var(--red); }
+.stat-val.gold { color: var(--gold); }
+.stat-val.accent { color: var(--accent); }
+
+/* ── Widget: Match Timer ── */
+#w-timer { top: 16px; left: 50%; transform: translateX(-50%); width: 160px; }
+.timer-display {
+  text-align: center;
+  font-family: var(--font-display); font-size: 32px; font-weight: 700;
+  color: var(--accent); text-shadow: 0 0 16px var(--accent-glow);
+  letter-spacing: 3px; line-height: 1;
+  padding: 4px 0 2px;
+}
+.timer-phase {
+  text-align: center;
+  font-family: var(--font-mono); font-size: 10px; color: var(--fg2);
+  letter-spacing: 2px; margin-top: 2px;
+}
+.round-pips { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+.pip { width: 18px; height: 4px; border-radius: 2px; background: var(--border); }
+.pip.won { background: var(--green); }
+.pip.lost { background: var(--red); }
+.pip.active { background: var(--accent); animation: pipblink .8s infinite; }
+@keyframes pipblink { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ── Widget: Minimap ── */
+#w-map { top: 16px; right: 16px; width: 140px; }
+.minimap {
+  width: 124px; height: 124px;
+  background: rgba(0,8,20,0.9);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  position: relative; overflow: hidden;
+}
+.map-grid {
+  position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 20px,rgba(255,255,255,0.04) 21px),
+    repeating-linear-gradient(90deg,transparent,transparent 20px,rgba(255,255,255,0.04) 21px);
+}
+.map-dot {
+  position: absolute; border-radius: 50%;
+  transform: translate(-50%,-50%);
+}
+.map-you { width:10px;height:10px; background:var(--accent); box-shadow:0 0 6px var(--accent); z-index:2; }
+.map-ally { width:7px;height:7px; background:var(--green); }
+.map-enemy { width:7px;height:7px; background:var(--red); }
+.map-label { font-family:var(--font-mono);font-size:8px;color:var(--accent);position:absolute;top:2px;left:3px; }
+.map-legend { display:flex; gap:8px; margin-top:4px; }
+.map-leg { display:flex;align-items:center;gap:3px;font-family:var(--font-mono);font-size:9px;color:var(--fg2); }
+.leg-dot { width:5px;height:5px;border-radius:50%; }
+
+/* ── Widget: KDA ── */
+#w-kda { bottom: 16px; left: 16px; width: 200px; }
+.kda-row { display:flex; align-items:center; justify-content:space-between; padding:4px 0; }
+.kda-name { font-family:var(--font-display);font-size:12px;font-weight:600;color:var(--fg); }
+.kda-badge { font-family:var(--font-mono);font-size:11px; }
+.kda-rank { font-size:10px;color:var(--fg3);font-family:var(--font-mono); }
+.divider { height:1px;background:var(--border2);margin:4px 0; }
+
+/* ── Widget: Alerts ── */
+#w-alerts { bottom: 16px; right: 16px; width: 190px; }
+.alert-item {
+  display:flex; align-items:flex-start; gap:6px;
+  padding:5px 0; border-bottom:1px solid var(--border2);
+  font-size:11px;
+}
+.alert-item:last-child { border:none; }
+.alert-icon { font-size:12px; margin-top:1px; flex-shrink:0; }
+.alert-text { color:var(--fg2); line-height:1.4; }
+.alert-time { font-family:var(--font-mono);font-size:9px;color:var(--fg3); margin-top:2px; }
+
+/* ── Hotkey bar ── */
+.hotkey-bar {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.hk-label { font-family:var(--font-mono); font-size:10px; color:var(--fg3); letter-spacing:1px; }
+.hk-group { display:flex; align-items:center; gap:8px; }
+.hk-item { display:flex; align-items:center; gap:5px; }
+.kbd {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:22px; height:20px; padding:0 5px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:3px;
+  font-family:var(--font-mono); font-size:10px; color:var(--fg2);
+  box-shadow:0 2px 0 var(--border);
+}
+.hk-desc { font-family:var(--font-mono); font-size:10px; color:var(--fg2); }
+
+/* ════════════════════════════════════
+   TAB 2 — CONFIG PANEL
+════════════════════════════════════ */
+#tab-config { padding: 24px 20px; flex-direction: column; gap: 24px; overflow-y: auto; }
+
+.config-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+@media(max-width:600px){ .config-grid{ grid-template-columns:1fr; } }
+
+.config-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden;
+}
+.config-card-head {
+  padding:12px 16px; border-bottom:1px solid var(--border);
+  font-family:var(--font-display); font-size:14px; font-weight:700; letter-spacing:1.5px;
+  color:var(--fg); display:flex; align-items:center; gap:8px;
+}
+.config-card-head .badge {
+  font-size:9px; padding:2px 6px; border-radius:10px;
+  background:var(--accent-dim); border:1px solid rgba(0,212,255,0.3);
+  color:var(--accent); letter-spacing:1px;
+}
+.config-body { padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+
+.form-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.form-label { font-family:var(--font-mono); font-size:11px; color:var(--fg2); flex:1; }
+.form-val { font-family:var(--font-mono); font-size:11px; color:var(--accent); min-width:30px; text-align:right; }
+
+input[type=range] {
+  -webkit-appearance:none; width:100px; height:4px;
+  background:var(--border2); border-radius:2px; outline:none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--accent); box-shadow:0 0 6px var(--accent-glow); cursor:pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width:14px; height:14px; border-radius:50%; border:none;
+  background:var(--accent); cursor:pointer;
+}
+
+.toggle-row { display:flex; align-items:center; justify-content:space-between; }
+.toggle-label { font-family:var(--font-mono); font-size:11px; color:var(--fg2); }
+.toggle {
+  position:relative; width:36px; height:20px;
+  display:inline-block;
+}
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider {
+  position:absolute; inset:0; cursor:pointer;
+  background:var(--border); border-radius:20px; transition:.2s;
+}
+.toggle-slider:before {
+  content:''; position:absolute;
+  width:14px; height:14px; left:3px; bottom:3px;
+  background:#fff; border-radius:50%; transition:.2s;
+}
+.toggle input:checked + .toggle-slider { background:var(--accent); }
+.toggle input:checked + .toggle-slider:before { transform:translateX(16px); }
+
+.hotkey-bind {
+  display:flex; align-items:center; gap:8px;
+}
+.hotkey-input {
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:4px; padding:4px 8px;
+  font-family:var(--font-mono); font-size:11px; color:var(--fg);
+  width:70px; text-align:center; cursor:pointer;
+  transition:border-color .15s;
+}
+.hotkey-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-dim); }
+.hotkey-input.listening { border-color:var(--gold); background:var(--gold-dim); color:var(--gold); animation:borderpulse .5s infinite alternate; }
+@keyframes borderpulse { from{box-shadow:0 0 0 2px var(--gold-dim)} to{box-shadow:0 0 0 4px rgba(255,199,64,0.25)} }
+
+.patch-status {
+  margin-top:8px; padding:10px 12px;
+  background:var(--green-dim); border:1px solid rgba(0,232,122,0.3);
+  border-radius:6px; display:flex; align-items:center; gap:8px;
+}
+.patch-status.warn { background:var(--gold-dim); border-color:rgba(255,199,64,0.3); }
+.patch-icon { font-size:14px; }
+.patch-text { font-family:var(--font-mono); font-size:11px; color:var(--fg); }
+.patch-sub { font-size:10px; color:var(--fg2); margin-top:1px; }
+
+/* ════════════════════════════════════
+   TAB 3 — ARCHITECTURE
+════════════════════════════════════ */
+#tab-arch { padding:24px 20px; flex-direction:column; gap:20px; overflow-y:auto; }
+.arch-title { font-family:var(--font-display); font-size:18px; font-weight:700; letter-spacing:2px; color:var(--fg); }
+.arch-sub { color:var(--fg2); font-size:13px; margin-top:4px; }
+
+.arch-diagram { display:flex; flex-direction:column; gap:12px; }
+.arch-layer {
+  background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;
+}
+.arch-layer-name {
+  font-family:var(--font-display); font-size:12px; font-weight:700; letter-spacing:2px;
+  color:var(--fg3); text-transform:uppercase; margin-bottom:12px;
+  display:flex; align-items:center; gap:8px;
+}
+.arch-layer-name::after { content:''; flex:1; height:1px; background:var(--border); }
+.arch-boxes { display:flex; gap:10px; flex-wrap:wrap; }
+.arch-box {
+  padding:10px 14px; border-radius:6px;
+  font-family:var(--font-mono); font-size:11px;
+  flex:1; min-width:120px;
+}
+.arch-box.accent { background:var(--accent-dim); border:1px solid rgba(0,212,255,0.3); color:var(--accent); }
+.arch-box.green { background:var(--green-dim); border:1px solid rgba(0,232,122,0.3); color:var(--green); }
+.arch-box.purple { background:rgba(155,109,255,0.12); border:1px solid rgba(155,109,255,0.3); color:var(--purple); }
+.arch-box.neutral { background:var(--surface2); border:1px solid var(--border); color:var(--fg2); }
+.arch-box b { display:block; font-size:12px; margin-bottom:3px; color:var(--fg); }
+.arch-arrow { text-align:center; color:var(--fg3); font-family:var(--font-mono); font-size:11px; letter-spacing:2px; }
+.arch-key { display:flex; gap:16px; flex-wrap:wrap; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+.arch-key-item { display:flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; color:var(--fg2); }
+.arch-key-dot { width:10px;height:10px;border-radius:2px; }
+
+/* scrollbar */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--fg3); }
+</style>
+
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="logo">RGC <span>MH</span></div>
+    <div class="topbar-tabs">
+      <button class="tab-btn active" onclick="switchTab('overlay',this)">OVERLAY</button>
+      <button class="tab-btn" onclick="switchTab('config',this)">CONFIG</button>
+      <button class="tab-btn" onclick="switchTab('arch',this)">ARCHITECTURE</button>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill"><div class="status-dot"></div>INJECTED · 12ms</div>
+      <div class="icon-btn" title="Toggle overlay" onclick="toggleOverlay()">⊕</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ══ TAB 1: OVERLAY ══ -->
+    <div class="panel active" id="tab-overlay">
+      <div style="flex:1;display:flex;flex-direction:column;">
+        <div class="overlay-stage" id="stage">
+
+          <!-- Game BG -->
+          <div class="game-bg">
+            <div class="game-arena">
+              <div class="arena-label">MATCH IN PROGRESS</div>
+              <div class="arena-dot" style="top:35%;left:50%;background:var(--accent);width:10px;height:10px;border-radius:50%;box-shadow:0 0 8px var(--accent);"></div>
+              <div class="arena-dot" style="top:55%;left:30%;background:var(--green);width:7px;height:7px;border-radius:50%;"></div>
+              <div class="arena-dot" style="top:45%;left:70%;background:var(--red);width:7px;height:7px;border-radius:50%;"></div>
+              <div class="arena-dot" style="top:70%;left:60%;background:var(--red);width:7px;height:7px;border-radius:50%;"></div>
+            </div>
+          </div>
+
+          <!-- WIDGET: Stats -->
+          <div class="widget" id="w-stats" style="top:16px;left:16px;width:180px;" data-drag>
+            <div class="widget-header">
+              <span class="widget-title">PLAYER STATS</span>
+              <span class="widget-close" onclick="this.closest('.widget').hidden=true">✕</span>
+            </div>
+            <div class="widget-body">
+              <div class="stat-row"><span class="stat-label">RANK</span><span class="stat-val accent">DIAMOND II</span></div>
+              <div class="stat-row"><span class="stat-label">K/D/A</span><span class="stat-val">14 / 3 / 8</span></div>
+              <div class="stat-row"><span class="stat-label">WIN RATE</span><span class="stat-val green">67.3%</span></div>
+              <div class="stat-row"><span class="stat-label">HS%</span><span class="stat-val">48.1%</span></div>
+              <div class="stat-row"><span class="stat-label">ADR</span><span class="stat-val gold">89.4</span></div>
+              <div class="stat-row"><span class="stat-label">STREAK</span><span class="stat-val green">+5W</span></div>
+            </div>
+          </div>
+
+          <!-- WIDGET: Timer -->
+          <div class="widget" id="w-timer" style="top:16px;left:calc(50% - 80px);width:160px;" data-drag>
+            <div class="widget-header">
+              <span class="widget-title">MATCH</span>
+              <span class="widget-close" onclick="this.closest('.widget').hidden=true">✕</span>
+            </div>
+            <div class="widget-body">
+              <div class="timer-display" id="timer-display">18:42</div>
+              <div class="timer-phase">ROUND 14 · ACTIVE</div>
+              <div class="round-pips" id="round-pips"></div>
+            </div>
+          </div>
+
+          <!-- WIDGET: Minimap -->
+          <div class="widget" id="w-map" style="top:16px;right:16px;width:148px;" data-drag>
+            <div class="widget-header">
+              <span class="widget-title">MINIMAP</span>
+              <span class="widget-close" onclick="this.closest('.widget').hidden=true">✕</span>
+            </div>
+            <div class="widget-body">
+              <div class="minimap">
+                <div class="map-grid"></div>
+                <div class="map-label">RGC-MAP-04</div>
+                <!-- you -->
+                <div class="map-dot map-you" id="map-you" style="left:50%;top:38%;"></div>
+                <!-- allies -->
+                <div class="map-dot map-ally" style="left:38%;top:52%;"></div>
+                <div class="map-dot map-ally" style="left:62%;top:45%;"></div>
+                <!-- enemies -->
+                <div class="map-dot map-enemy" id="e1" style="left:28%;top:70%;"></div>
+                <div class="map-dot map-enemy" id="e2" style="left:75%;top:60%;"></div>
+              </div>
+              <div class="map-legend">
+                <div class="map-leg"><div class="leg-dot" style="background:var(--accent)"></div>YOU</div>
+                <div class="map-leg"><div class="leg-dot" style="background:var(--green)"></div>ALLY</div>
+                <div class="map-leg"><div class="leg-dot" style="background:var(--red)"></div>FOE</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- WIDGET: KDA Board -->
+          <div class="widget" id="w-kda" style="bottom:52px;left:16px;width:210px;" data-drag>
+            <div class="widget-header">
+              <span class="widget-title">SCOREBOARD</span>
+              <span class="widget-close" onclick="this.closest('.widget').hidden=true">✕</span>
+            </div>
+            <div class="widget-body">
+              <div class="kda-row">
+                <div><div class="kda-name" style="color:var(--accent)">▶ You</div><div class="kda-rank">DIAMOND II</div></div>
+                <span class="kda-badge" style="color:var(--accent)">14/3/8</span>
+              </div>
+              <div class="divider"></div>
+              <div class="kda-row">
+                <div><div class="kda-name">AlphaWolf</div><div class="kda-rank">PLATINUM I</div></div>
+                <span class="kda-badge" style="color:var(--green)">11/5/6</span>
+              </div>
+              <div class="kda-row">
+                <div><div class="kda-name">ShadowX</div><div class="kda-rank">DIAMOND III</div></div>
+                <span class="kda-badge" style="color:var(--fg2)">8/7/11</span>
+              </div>
+              <div class="divider"></div>
+              <div class="kda-row">
+                <div><div class="kda-name" style="color:var(--red)">Hunter99</div><div class="kda-rank">PLATINUM II</div></div>
+                <span class="kda-badge" style="color:var(--red)">6/9/4</span>
+              </div>
+              <div class="kda-row">
+                <div><div class="kda-name" style="color:var(--red)">GhostSnipe</div><div class="kda-rank">GOLD I</div></div>
+                <span class="kda-badge" style="color:var(--red)">4/12/3</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- WIDGET: Alerts -->
+          <div class="widget" id="w-alerts" style="bottom:52px;right:16px;width:200px;" data-drag>
+            <div class="widget-header">
+              <span class="widget-title">LIVE ALERTS</span>
+              <span class="widget-close" onclick="this.closest('.widget').hidden=true">✕</span>
+            </div>
+            <div class="widget-body" id="alerts-body">
+              <div class="alert-item"><span class="alert-icon">⚡</span><div><div class="alert-text">Enemy entering B-site</div><div class="alert-time">00:04 ago</div></div></div>
+              <div class="alert-item"><span class="alert-icon">🎯</span><div><div class="alert-text">AlphaWolf: 3-kill streak</div><div class="alert-time">00:17 ago</div></div></div>
+              <div class="alert-item"><span class="alert-icon">⚠️</span><div><div class="alert-text">Flanking — right side open</div><div class="alert-time">00:31 ago</div></div></div>
+            </div>
+          </div>
+
+        </div><!-- /overlay-stage -->
+
+        <!-- HOTKEY BAR -->
+        <div class="hotkey-bar">
+          <span class="hk-label">HOTKEYS</span>
+          <div class="hk-group">
+            <div class="hk-item"><kbd class="kbd">F1</kbd><span class="hk-desc">Toggle HUD</span></div>
+            <div class="hk-item"><kbd class="kbd">F2</kbd><span class="hk-desc">Lock/unlock</span></div>
+            <div class="hk-item"><kbd class="kbd">F3</kbd><span class="hk-desc">Config</span></div>
+            <div class="hk-item"><kbd class="kbd">INS</kbd><span class="hk-desc">Reset layout</span></div>
+            <div class="hk-item"><kbd class="kbd">DEL</kbd><span class="hk-desc">Hide all</span></div>
+          </div>
+          <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--fg3)">DRAG WIDGETS TO REPOSITION</span>
+        </div>
+      </div>
+    </div><!-- /tab-overlay -->
+
+    <!-- ══ TAB 2: CONFIG ══ -->
+    <div class="panel" id="tab-config">
+
+      <div style="flex:1;display:flex;flex-direction:column;gap:20px;">
+        <div>
+          <div style="font-family:var(--font-display);font-size:20px;font-weight:700;letter-spacing:2px;color:var(--fg)">CONFIGURATION</div>
+          <div style="color:var(--fg2);font-size:13px;margin-top:4px;">All settings persist per-user. Changes apply live — no restart required.</div>
+        </div>
+
+        <div class="config-grid">
+
+          <!-- Opacity & Layout -->
+          <div class="config-card">
+            <div class="config-card-head">DISPLAY <span class="badge">LIVE</span></div>
+            <div class="config-body">
+              <div class="form-row">
+                <span class="form-label">Overlay opacity</span>
+                <input type="range" min="20" max="100" value="88" oninput="this.nextElementSibling.textContent=this.value+'%'">
+                <span class="form-val">88%</span>
+              </div>
+              <div class="form-row">
+                <span class="form-label">Widget scale</span>
+                <input type="range" min="60" max="140" value="100" oninput="this.nextElementSibling.textContent=this.value+'%'">
+                <span class="form-val">100%</span>
+              </div>
+              <div class="form-row">
+                <span class="form-label">Blur backdrop</span>
+                <input type="range" min="0" max="20" value="8" oninput="this.nextElementSibling.textContent=this.value+'px'">
+                <span class="form-val">8px</span>
+              </div>
+              <div class="divider"></div>
+              <div class="toggle-row"><span class="toggle-label">Show minimap</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div class="toggle-row"><span class="toggle-label">Show scoreboard</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div class="toggle-row"><span class="toggle-label">Show live alerts</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div class="toggle-row"><span class="toggle-label">Show match timer</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+            </div>
+          </div>
+
+          <!-- Hotkeys -->
+          <div class="config-card">
+            <div class="config-card-head">HOTKEYS <span class="badge">REBIND</span></div>
+            <div class="config-body">
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--fg3);margin-bottom:6px;">Click a key and press to rebind. Press Esc to cancel.</div>
+              <div class="form-row"><span class="form-label">Toggle HUD</span><div class="hotkey-input" tabindex="0" data-action="toggle" onclick="startRebind(this)">F1</div></div>
+              <div class="form-row"><span class="form-label">Lock widgets</span><div class="hotkey-input" tabindex="0" data-action="lock" onclick="startRebind(this)">F2</div></div>
+              <div class="form-row"><span class="form-label">Open config</span><div class="hotkey-input" tabindex="0" data-action="config" onclick="startRebind(this)">F3</div></div>
+              <div class="form-row"><span class="form-label">Reset layout</span><div class="hotkey-input" tabindex="0" data-action="reset" onclick="startRebind(this)">Insert</div></div>
+              <div class="form-row"><span class="form-label">Hide all</span><div class="hotkey-input" tabindex="0" data-action="hide" onclick="startRebind(this)">Delete</div></div>
+              <div class="form-row"><span class="form-label">Screenshot</span><div class="hotkey-input" tabindex="0" data-action="shot" onclick="startRebind(this)">F12</div></div>
+            </div>
+          </div>
+
+          <!-- Data sources -->
+          <div class="config-card">
+            <div class="config-card-head">OFFSET MAP <span class="badge">v2.4.1</span></div>
+            <div class="config-body">
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--fg3);margin-bottom:8px;">
+                Offsets are versioned separately from UI — a patch only updates this file, not the overlay itself.
+              </div>
+              <div class="form-row"><span class="form-label">RGC client version</span><span class="form-val">4.7.2</span></div>
+              <div class="form-row"><span class="form-label">Offset map</span><span class="form-val">v2.4.1</span></div>
+              <div class="form-row"><span class="form-label">Match status</span><span class="form-val" style="color:var(--green)">0x1F8A04</span></div>
+              <div class="form-row"><span class="form-label">Player base</span><span class="form-val" style="color:var(--green)">0x2C4480</span></div>
+              <div class="form-row"><span class="form-label">Score array</span><span class="form-val" style="color:var(--green)">0x3A21B8</span></div>
+              <div class="patch-status" id="patch-badge">
+                <span class="patch-icon">✓</span>
+                <div><div class="patch-text">All offsets verified</div><div class="patch-sub">Last check: RGC 4.7.2 · 2 hours ago</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Performance -->
+          <div class="config-card">
+            <div class="config-card-head">PERFORMANCE</div>
+            <div class="config-body">
+              <div class="form-row">
+                <span class="form-label">Poll rate (ms)</span>
+                <input type="range" min="10" max="200" value="33" oninput="this.nextElementSibling.textContent=this.value+'ms'">
+                <span class="form-val">33ms</span>
+              </div>
+              <div class="form-row">
+                <span class="form-label">Render thread priority</span>
+                <select style="background:var(--surface2);border:1px solid var(--border);color:var(--fg);padding:3px 8px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">
+                  <option>NORMAL</option><option>HIGH</option><option>REALTIME</option>
+                </select>
+              </div>
+              <div class="divider"></div>
+              <div class="toggle-row"><span class="toggle-label">GPU-accelerated overlay</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div class="toggle-row"><span class="toggle-label">Reduce motion on low FPS</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div class="toggle-row"><span class="toggle-label">Auto-hide on fullscreen menus</span><label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div class="form-row" style="margin-top:4px;">
+                <span class="form-label">CPU overhead</span><span class="form-val" style="color:var(--green)">0.8%</span>
+              </div>
+              <div class="form-row">
+                <span class="form-label">Frame latency</span><span class="form-val" style="color:var(--green)">1.2ms</span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /config-grid -->
+      </div>
+    </div><!-- /tab-config -->
+
+    <!-- ══ TAB 3: ARCHITECTURE ══ -->
+    <div class="panel" id="tab-arch">
+      <div style="flex:1;">
+        <div class="arch-title">MH ARCHITECTURE</div>
+        <div class="arch-sub">Patch-resilient overlay system — offset map is decoupled from UI so re-patching is a 5-minute config update, not a full rebuild.</div>
+
+        <div class="arch-diagram" style="margin-top:20px;">
+
+          <div class="arch-layer">
+            <div class="arch-layer-name">GAME PROCESS</div>
+            <div class="arch-boxes">
+              <div class="arch-box neutral"><b>RGC Client (4.7.x)</b>match state · player data · score</div>
+              <div class="arch-box neutral"><b>Memory Space</b>Win32 ReadProcessMemory / Linux ptrace</div>
+            </div>
+          </div>
+
+          <div class="arch-arrow">↓ offset-versioned reads ↓</div>
+
+          <div class="arch-layer">
+            <div class="arch-layer-name">DATA LAYER (patch-resilient)</div>
+            <div class="arch-boxes">
+              <div class="arch-box green"><b>Offset Map v2.4.1</b>JSON config — updated per patch, versioned independently</div>
+              <div class="arch-box green"><b>Memory Reader</b>typed struct parser · validated against known sentinels</div>
+              <div class="arch-box green"><b>State Bus</b>33 ms poll → normalized event stream</div>
+            </div>
+          </div>
+
+          <div class="arch-arrow">↓ clean typed events ↓</div>
+
+          <div class="arch-layer">
+            <div class="arch-layer-name">MH CORE</div>
+            <div class="arch-boxes">
+              <div class="arch-box accent"><b>Widget Engine</b>draggable panels · saved positions · opacity</div>
+              <div class="arch-box accent"><b>Hotkey Manager</b>rebindable keys · in-game toggle · lock mode</div>
+              <div class="arch-box accent"><b>Config Store</b>per-user JSON · live reload · no restart</div>
+            </div>
+          </div>
+
+          <div class="arch-arrow">↓ renders via DirectX/Vulkan or windowed overlay ↓</div>
+
+          <div class="arch-layer">
+            <div class="arch-layer-name">RENDER LAYER</div>
+            <div class="arch-boxes">
+              <div class="arch-box purple"><b>D3D11 Hook</b>in-process Present() injection — zero-copy</div>
+              <div class="arch-box purple"><b>Windowed Fallback</b>transparent WS_EX_LAYERED window — anti-cheat safe</div>
+              <div class="arch-box purple"><b>GPU Composite</b>&lt;1ms frame time · VRAM-resident atlas</div>
+            </div>
+          </div>
+
+          <div class="arch-key">
+            <div style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--fg2);width:100%;margin-bottom:4px;">KEY DESIGN DECISIONS</div>
+            <div class="arch-key-item"><div class="arch-key-dot" style="background:var(--green)"></div>Offset map is a separate versioned file → patch update takes minutes</div>
+            <div class="arch-key-item"><div class="arch-key-dot" style="background:var(--accent)"></div>Widget positions saved per user → layout survives updates</div>
+            <div class="arch-key-item"><div class="arch-key-dot" style="background:var(--purple)"></div>Render mode configurable → works with any anti-cheat policy</div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /tab-arch -->
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+/* ── Tab switching ── */
+function switchTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ── Draggable widgets ── */
+(function(){
+  const stage = document.getElementById('stage');
+  document.querySelectorAll('[data-drag]').forEach(w => {
+    let ox, oy, sx, sy, dragging = false;
+    w.addEventListener('mousedown', e => {
+      if(e.target.classList.contains('widget-close')) return;
+      dragging = true;
+      const r = w.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      ox = e.clientX - (r.left - sr.left);
+      oy = e.clientY - (r.top - sr.top);
+      // remove right/bottom, use left/top
+      w.style.right = ''; w.style.bottom = '';
+      w.style.left = (r.left - sr.left)+'px';
+      w.style.top  = (r.top  - sr.top )+'px';
+      w.style.transform = '';
+      w.classList.add('dragging');
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', e => {
+      if(!dragging) return;
+      const sr = stage.getBoundingClientRect();
+      let nx = e.clientX - sr.left - ox;
+      let ny = e.clientY - sr.top  - oy;
+      nx = Math.max(0, Math.min(sr.width  - w.offsetWidth,  nx));
+      ny = Math.max(0, Math.min(sr.height - w.offsetHeight, ny));
+      w.style.left = nx+'px'; w.style.top = ny+'px';
+    });
+    window.addEventListener('mouseup', () => { dragging = false; w.classList.remove('dragging'); });
+  });
+})();
+
+/* ── Live timer ── */
+let seconds = 18*60+42;
+const timerEl = document.getElementById('timer-display');
+setInterval(() => {
+  seconds--;
+  if(seconds < 0) seconds = 20*60;
+  const m = Math.floor(seconds/60), s = seconds%60;
+  timerEl.textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}, 1000);
+
+/* ── Round pips ── */
+const pips = document.getElementById('round-pips');
+const states = ['won','won','won','lost','won','won','lost','won','won','won','lost','won','won','active','','',''];
+states.slice(0,17).forEach(s => {
+  const p = document.createElement('div'); p.className = 'pip'+(s?' '+s:''); pips.appendChild(p);
+});
+
+/* ── Animated map dots ── */
+function moveDot(el, minX, maxX, minY, maxY) {
+  let tx = minX + Math.random()*(maxX-minX), ty = minY + Math.random()*(maxY-minY);
+  el.style.transition = `left ${1.5+Math.random()*2}s ease, top ${1.5+Math.random()*2}s ease`;
+  el.style.left = tx+'%'; el.style.top = ty+'%';
+}
+const e1 = document.getElementById('e1'), e2 = document.getElementById('e2'), myDot = document.getElementById('map-you');
+setInterval(() => { moveDot(e1,15,45,50,85); moveDot(e2,60,90,40,80); }, 2500);
+setInterval(() => { moveDot(myDot,40,62,28,55); }, 3500);
+
+/* ── Live alerts feed ── */
+const alertData = [
+  ['⚡','B-site breach detected'],['🎯','Headshot — GhostSnipe down'],['⚠️','Rotate — A flank open'],
+  ['🛡️','AlphaWolf: 5-kill streak!'],['💰','Economy: full-buy round'],['⚡','Enemy regrouping mid'],
+  ['🎯','ShadowX: round MVP'],['⚠️','Low HP — seek cover'],
+];
+let alertIdx = 0;
+setInterval(() => {
+  const body = document.getElementById('alerts-body');
+  if(!body) return;
+  const [icon, text] = alertData[alertIdx++ % alertData.length];
+  const div = document.createElement('div'); div.className = 'alert-item';
+  div.innerHTML = `<span class="alert-icon">${icon}</span><div><div class="alert-text">${text}</div><div class="alert-time">just now</div></div>`;
+  body.prepend(div);
+  const items = body.querySelectorAll('.alert-item');
+  if(items.length > 4) items[items.length-1].remove();
+}, 4000);
+
+/* ── Hotkey rebinder ── */
+let listening = null;
+function startRebind(el) {
+  if(listening) { listening.classList.remove('listening'); }
+  listening = el; el.classList.add('listening'); el.textContent = '…';
+  function onKey(e) {
+    e.preventDefault(); e.stopPropagation();
+    if(e.key === 'Escape') { el.textContent = el.dataset.prev||'?'; }
+    else {
+      const k = e.key.length===1 ? e.key.toUpperCase() : e.key;
+      el.dataset.prev = k; el.textContent = k;
+    }
+    el.classList.remove('listening'); listening = null;
+    window.removeEventListener('keydown', onKey, true);
+  }
+  el.dataset.prev = el.textContent !== '…' ? el.textContent : (el.dataset.prev||'?');
+  window.addEventListener('keydown', onKey, true);
+}
+
+/* ── Toggle overlay visibility ── */
+function toggleOverlay() {
+  const stage = document.getElementById('stage');
+  const widgets = stage.querySelectorAll('.widget');
+  const anyVis = [...widgets].some(w => !w.hidden);
+  widgets.forEach(w => w.hidden = anyVis);
+}
+</script>
